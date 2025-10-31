@@ -1,0 +1,279 @@
+import io
+import base64
+import numpy as np
+from PIL import Image
+
+import fal_client
+
+
+class FalAITextLLM:
+    """
+    Fal.AI Text LLM Node
+    Generates text using various LLM models from Fal.AI
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {
+                    "multiline": True,
+                    "default": "Tell me a short story about AI"
+                }),
+                "model": ([
+                    "google/gemini-2.5-flash-lite",
+                    "google/gemini-2.5-flash",
+                    "google/gemini-2.5-pro",
+                    "google/gemini-2.0-flash-001",
+                    "google/gemini-flash-1.5",
+                    "google/gemini-flash-1.5-8b",
+                    "google/gemini-pro-1.5",
+                    "anthropic/claude-3.7-sonnet",
+                    "anthropic/claude-3.5-sonnet",
+                    "anthropic/claude-3-5-haiku",
+                    "anthropic/claude-3-haiku",
+                    "openai/gpt-4o",
+                    "openai/gpt-4o-mini",
+                    "openai/gpt-4.1",
+                    "openai/gpt-5-chat",
+                    "openai/gpt-5-mini",
+                    "openai/gpt-5-nano",
+                    "openai/o3",
+                    "openai/gpt-oss-120b",
+                    "meta-llama/llama-3.1-70b-instruct",
+                    "meta-llama/llama-3.1-8b-instruct",
+                    "meta-llama/llama-3.2-1b-instruct",
+                    "meta-llama/llama-3.2-3b-instruct",
+                    "meta-llama/llama-4-maverick",
+                    "meta-llama/llama-4-scout",
+                    "deepseek/deepseek-r1",
+                ], {
+                    "default": "google/gemini-2.5-flash-lite"
+                }),
+                "system_prompt": ("STRING", {
+                    "multiline": True,
+                    "default": "You are a helpful assistant."
+                }),
+            },
+            "optional": {
+                "max_tokens": ("INT", {
+                    "default": 512,
+                    "min": 1,
+                    "max": 4096,
+                    "step": 1
+                }),
+                "temperature": ("FLOAT", {
+                    "default": 0.7,
+                    "min": 0.0,
+                    "max": 2.0,
+                    "step": 0.01
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("generated_text",)
+    FUNCTION = "generate_text"
+    CATEGORY = "fal/llm"
+
+    def generate_text(
+        self, 
+        prompt, 
+        model, 
+        system_prompt, 
+        max_tokens=512, 
+        temperature=0.7
+    ):
+        """
+        Generate text using Fal.AI Text LLM API
+        
+        Args:
+            prompt: The user prompt
+            model: The LLM model to use
+            system_prompt: System instructions for the model
+            max_tokens: Maximum tokens to generate
+            temperature: Sampling temperature
+            
+        Returns:
+            Tuple containing the generated text
+        """
+        try:
+            # Prepare the request payload
+            arguments = {
+                "prompt": prompt,
+                "model": model,
+                "system_prompt": system_prompt,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+
+            # Call the Fal.AI API
+            result = fal_client.subscribe(
+                "fal-ai/any-llm",
+                arguments=arguments
+            )
+
+            # Extract the generated text
+            generated_text = result.get("output", "")
+            
+            if not generated_text:
+                generated_text = "Error: No output received from the API"
+                print(f"[FalAI Text LLM] Warning: Empty response from API")
+            else:
+                print(f"[FalAI Text LLM] Generated text: {generated_text[:100]}...")
+
+            return (generated_text,)
+
+        except Exception as e:
+            error_msg = f"Error generating text: {str(e)}"
+            print(f"[FalAI Text LLM] {error_msg}")
+            return (error_msg,)
+
+
+class FalAIVisionLLM:
+    """
+    Fal.AI Vision LLM Node
+    Analyzes images and generates descriptions using vision-language models
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "prompt": ("STRING", {
+                    "multiline": True,
+                    "default": "Describe this image in detail"
+                }),
+                "model": ([
+                    "google/gemini-2.5-flash-lite",
+                    "google/gemini-2.5-flash",
+                    "google/gemini-2.5-pro",
+                    "google/gemini-2.0-flash-001",
+                    "google/gemini-flash-1.5",
+                    "google/gemini-flash-1.5-8b",
+                    "google/gemini-pro-1.5",
+                    "anthropic/claude-3.7-sonnet",
+                    "anthropic/claude-3.5-sonnet",
+                    "anthropic/claude-3-haiku",
+                    "openai/gpt-4o",
+                    "openai/gpt-4.1",
+                    "openai/gpt-5-chat",
+                    "meta-llama/llama-3.2-90b-vision-instruct",
+                    "meta-llama/llama-4-maverick",
+                    "meta-llama/llama-4-scout",
+                ], {
+                    "default": "google/gemini-2.5-flash-lite"
+                }),
+                "system_prompt": ("STRING", {
+                    "multiline": True,
+                    "default": "You are a helpful vision assistant."
+                }),
+            },
+            "optional": {
+                "max_tokens": ("INT", {
+                    "default": 512,
+                    "min": 1,
+                    "max": 4096,
+                    "step": 1
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("description",)
+    FUNCTION = "analyze_image"
+    CATEGORY = "fal/llm"
+
+    def tensor_to_base64(self, image_tensor):
+        """
+        Convert ComfyUI image tensor to base64 data URI
+        
+        Args:
+            image_tensor: ComfyUI image tensor [batch, height, width, channels] with values 0-1
+            
+        Returns:
+            Base64 encoded data URI
+        """
+        # Convert tensor to numpy array (0-255 range)
+        image_np = (image_tensor.squeeze(0).cpu().numpy() * 255).astype(np.uint8)
+        
+        # Convert to PIL Image
+        pil_image = Image.fromarray(image_np)
+        
+        # Convert to base64
+        buffer = io.BytesIO()
+        pil_image.save(buffer, format="PNG")
+        img_base64 = base64.b64encode(buffer.getvalue()).decode()
+        
+        return f"data:image/png;base64,{img_base64}"
+
+    def analyze_image(
+        self, 
+        image, 
+        prompt, 
+        model, 
+        system_prompt, 
+        max_tokens=512
+    ):
+        """
+        Analyze image using Fal.AI Vision LLM API
+        
+        Args:
+            image: ComfyUI image tensor
+            prompt: The question or instruction about the image
+            model: The vision-language model to use
+            system_prompt: System instructions for the model
+            max_tokens: Maximum tokens to generate
+            
+        Returns:
+            Tuple containing the generated description
+        """
+        try:
+            # Convert image to base64 data URI
+            image_data_uri = self.tensor_to_base64(image)
+
+            # Prepare the request payload
+            arguments = {
+                "image_url": image_data_uri,
+                "prompt": prompt,
+                "model": model,
+                "system_prompt": system_prompt,
+                "max_tokens": max_tokens,
+            }
+
+            # Call the Fal.AI API
+            result = fal_client.subscribe(
+                "fal-ai/any-llm/vision",
+                arguments=arguments
+            )
+
+            # Extract the generated description
+            description = result.get("output", "")
+            
+            if not description:
+                description = "Error: No output received from the API"
+                print(f"[FalAI Vision LLM] Warning: Empty response from API")
+            else:
+                print(f"[FalAI Vision LLM] Generated description: {description[:100]}...")
+
+            return (description,)
+
+        except Exception as e:
+            error_msg = f"Error analyzing image: {str(e)}"
+            print(f"[FalAI Vision LLM] {error_msg}")
+            return (error_msg,)
+
+
+NODE_CLASS_MAPPINGS = {
+    "FalAITextLLM_fal": FalAITextLLM,
+    "FalAIVisionLLM_fal": FalAIVisionLLM,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "FalAITextLLM_fal": "Text LLM (fal)",
+    "FalAIVisionLLM_fal": "Vision LLM (fal)",
+}
+
+
+
