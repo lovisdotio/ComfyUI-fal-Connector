@@ -1,5 +1,6 @@
 import io
 import base64
+import os
 import numpy as np
 from PIL import Image
 
@@ -16,6 +17,10 @@ class FalAITextLLM:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "fal_api_key": ("STRING", {
+                    "default": "",
+                    "multiline": False
+                }),
                 "prompt": ("STRING", {
                     "multiline": True,
                     "default": "Tell me a short story about AI"
@@ -77,10 +82,11 @@ class FalAITextLLM:
     CATEGORY = "fal/llm"
 
     def generate_text(
-        self, 
+        self,
+        fal_api_key,
         prompt, 
         model, 
-        system_prompt, 
+        system_prompt,
         max_tokens=512, 
         temperature=0.7
     ):
@@ -88,6 +94,7 @@ class FalAITextLLM:
         Generate text using Fal.AI Text LLM API
         
         Args:
+            fal_api_key: Fal.AI API key (REQUIRED - environment variables are ignored)
             prompt: The user prompt
             model: The LLM model to use
             system_prompt: System instructions for the model
@@ -98,6 +105,16 @@ class FalAITextLLM:
             Tuple containing the generated text
         """
         try:
+            # Validate API key is provided
+            if not fal_api_key or not fal_api_key.strip():
+                error_msg = "ERROR: Fal.AI API key is required. Please provide your API key in the 'fal_api_key' field."
+                print(f"[FalAI Text LLM] {error_msg}")
+                return (error_msg,)
+            
+            # Set the API key for this call ONLY (never use environment)
+            original_key = os.environ.get("FAL_KEY")
+            os.environ["FAL_KEY"] = fal_api_key.strip()
+            
             # Prepare the request payload
             arguments = {
                 "prompt": prompt,
@@ -112,6 +129,12 @@ class FalAITextLLM:
                 "fal-ai/any-llm",
                 arguments=arguments
             )
+            
+            # Always restore original environment state
+            if original_key:
+                os.environ["FAL_KEY"] = original_key
+            else:
+                os.environ.pop("FAL_KEY", None)
 
             # Extract the generated text
             generated_text = result.get("output", "")
@@ -140,6 +163,10 @@ class FalAIVisionLLM:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "fal_api_key": ("STRING", {
+                    "default": "",
+                    "multiline": False
+                }),
                 "image": ("IMAGE",),
                 "prompt": ("STRING", {
                     "multiline": True,
@@ -209,17 +236,19 @@ class FalAIVisionLLM:
         return f"data:image/png;base64,{img_base64}"
 
     def analyze_image(
-        self, 
+        self,
+        fal_api_key,
         image, 
         prompt, 
         model, 
-        system_prompt, 
+        system_prompt,
         max_tokens=512
     ):
         """
         Analyze image using Fal.AI Vision LLM API
         
         Args:
+            fal_api_key: Fal.AI API key (REQUIRED - environment variables are ignored)
             image: ComfyUI image tensor
             prompt: The question or instruction about the image
             model: The vision-language model to use
@@ -230,6 +259,16 @@ class FalAIVisionLLM:
             Tuple containing the generated description
         """
         try:
+            # Validate API key is provided
+            if not fal_api_key or not fal_api_key.strip():
+                error_msg = "ERROR: Fal.AI API key is required. Please provide your API key in the 'fal_api_key' field."
+                print(f"[FalAI Vision LLM] {error_msg}")
+                return (error_msg,)
+            
+            # Set the API key for this call ONLY (never use environment)
+            original_key = os.environ.get("FAL_KEY")
+            os.environ["FAL_KEY"] = fal_api_key.strip()
+            
             # Convert image to base64 data URI
             image_data_uri = self.tensor_to_base64(image)
 
@@ -247,6 +286,12 @@ class FalAIVisionLLM:
                 "fal-ai/any-llm/vision",
                 arguments=arguments
             )
+            
+            # Always restore original environment state
+            if original_key:
+                os.environ["FAL_KEY"] = original_key
+            else:
+                os.environ.pop("FAL_KEY", None)
 
             # Extract the generated description
             description = result.get("output", "")
