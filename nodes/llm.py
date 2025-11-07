@@ -104,17 +104,17 @@ class FalAITextLLM:
         Returns:
             Tuple containing the generated text
         """
+        # Validate API key is provided
+        if not fal_api_key or not fal_api_key.strip():
+            error_msg = "ERROR: Fal.AI API key is required. Please provide your API key in the 'fal_api_key' field."
+            print(f"[FalAI Text LLM] {error_msg}")
+            return (error_msg,)
+        
+        # Set the API key for this call ONLY (never use environment)
+        original_key = os.environ.get("FAL_KEY")
+        os.environ["FAL_KEY"] = fal_api_key.strip()
+        
         try:
-            # Validate API key is provided
-            if not fal_api_key or not fal_api_key.strip():
-                error_msg = "ERROR: Fal.AI API key is required. Please provide your API key in the 'fal_api_key' field."
-                print(f"[FalAI Text LLM] {error_msg}")
-                return (error_msg,)
-            
-            # Set the API key for this call ONLY (never use environment)
-            original_key = os.environ.get("FAL_KEY")
-            os.environ["FAL_KEY"] = fal_api_key.strip()
-            
             # Prepare the request payload
             arguments = {
                 "prompt": prompt,
@@ -129,12 +129,6 @@ class FalAITextLLM:
                 "fal-ai/any-llm",
                 arguments=arguments
             )
-            
-            # Always restore original environment state
-            if original_key:
-                os.environ["FAL_KEY"] = original_key
-            else:
-                os.environ.pop("FAL_KEY", None)
 
             # Extract the generated text
             generated_text = result.get("output", "")
@@ -151,6 +145,13 @@ class FalAITextLLM:
             error_msg = f"Error generating text: {str(e)}"
             print(f"[FalAI Text LLM] {error_msg}")
             return (error_msg,)
+        
+        finally:
+            # Always restore original environment state (security critical!)
+            if original_key:
+                os.environ["FAL_KEY"] = original_key
+            else:
+                os.environ.pop("FAL_KEY", None)
 
 
 class FalAIVisionLLM:
@@ -258,17 +259,17 @@ class FalAIVisionLLM:
         Returns:
             Tuple containing the generated description
         """
+        # Validate API key is provided
+        if not fal_api_key or not fal_api_key.strip():
+            error_msg = "ERROR: Fal.AI API key is required. Please provide your API key in the 'fal_api_key' field."
+            print(f"[FalAI Vision LLM] {error_msg}")
+            return (error_msg,)
+        
+        # Set the API key for this call ONLY (never use environment)
+        original_key = os.environ.get("FAL_KEY")
+        os.environ["FAL_KEY"] = fal_api_key.strip()
+        
         try:
-            # Validate API key is provided
-            if not fal_api_key or not fal_api_key.strip():
-                error_msg = "ERROR: Fal.AI API key is required. Please provide your API key in the 'fal_api_key' field."
-                print(f"[FalAI Vision LLM] {error_msg}")
-                return (error_msg,)
-            
-            # Set the API key for this call ONLY (never use environment)
-            original_key = os.environ.get("FAL_KEY")
-            os.environ["FAL_KEY"] = fal_api_key.strip()
-            
             # Convert image to base64 data URI
             image_data_uri = self.tensor_to_base64(image)
 
@@ -286,12 +287,6 @@ class FalAIVisionLLM:
                 "fal-ai/any-llm/vision",
                 arguments=arguments
             )
-            
-            # Always restore original environment state
-            if original_key:
-                os.environ["FAL_KEY"] = original_key
-            else:
-                os.environ.pop("FAL_KEY", None)
 
             # Extract the generated description
             description = result.get("output", "")
@@ -308,6 +303,13 @@ class FalAIVisionLLM:
             error_msg = f"Error analyzing image: {str(e)}"
             print(f"[FalAI Vision LLM] {error_msg}")
             return (error_msg,)
+        
+        finally:
+            # Always restore original environment state (security critical!)
+            if original_key:
+                os.environ["FAL_KEY"] = original_key
+            else:
+                os.environ.pop("FAL_KEY", None)
 
 
 NODE_CLASS_MAPPINGS = {
